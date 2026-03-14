@@ -1,13 +1,8 @@
-# AML/KYC GraphRAG Copilot
+# AML/KYC RAG Assistant
 
-A **retrieval-augmented GenAI copilot** for AML/KYC analysts: explore and summarize financial crime risk signals from consumer complaint narratives and regulatory text. Ask case-style questions, get cited answers, and inspect relationship graphs across customers, institutions, products, and issues.
+**Repo:** `aml-kyc-rag-assistant`
 
-**Suggested repo names** (if you rename the repository):
-
-- **`aml-graphrag-copilot`** — Short, clear, search-friendly
-- **`aml-kyc-rag-assistant`** — Emphasizes AML/KYC and RAG
-- **`cfpb-aml-copilot`** — Ties to CFPB data and AML use case
-- **`responsible-aml-copilot`** — Highlights responsible AI and evaluation
+A **retrieval-augmented GenAI assistant** for AML/KYC analysts: explore and summarize financial crime risk signals from consumer complaint narratives and regulatory text. Ask case-style questions, get cited answers, and inspect relationship graphs across customers, institutions, products, and issues.
 
 ---
 
@@ -66,7 +61,7 @@ The system uses the **CFPB Consumer Complaint Database** (filtered by product), 
 
 ```bash
 git clone <your-repo-url>
-cd aml-graphrag-copilot   # or your repo name
+cd aml-kyc-rag-assistant
 cp .env.example .env
 ```
 

@@ -1,2 +1,5 @@
-# Minimal deps for dataset script; expand for ingestion/RAG later
+# Data and ingestion
 pandas>=2.0.0,<3
+pypdf>=4.0,<5
+qdrant-client>=1.7,<2
+requests>=2.28,<3
