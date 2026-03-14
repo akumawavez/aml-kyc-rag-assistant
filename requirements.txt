@@ -1,0 +1,2 @@
+# Minimal deps for dataset script; expand for ingestion/RAG later
+pandas>=2.0.0,<3

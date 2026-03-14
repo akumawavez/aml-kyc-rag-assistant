@@ -1,0 +1,17 @@
+# Prometheus config for local AML stack
+# Add scrape configs for your app (e.g. reranker, Streamlit via prometheus_client) when ready.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Example: uncomment and set correct host when app exposes /metrics
+  # - job_name: reranker
+  #   static_configs:
+  #     - targets: ["reranker:8000"]
+  #   metrics_path: /metrics
