@@ -65,27 +65,37 @@ cd aml-kyc-rag-assistant
 cp .env.example .env
 ```
 
-Edit `.env`: set at least **`NEO4J_PASSWORD`**; for full features add **`OPENROUTER_API_KEY`** or **`OPENAI_API_KEY`**, and **`COHERE_API_KEY`** (optional, for reranker). See [.env.example](.env.example).
+Edit `.env`:
+- **For ingestion:** set **`OPENROUTER_API_KEY`** (required; get it at [openrouter.ai/keys](https://openrouter.ai/keys)).
+- Optional: `QDRANT_HOST`, `QDRANT_PORT`, `QDRANT_COLLECTION` (defaults: localhost, 6333, aml_rag).
+- For Docker stack: `NEO4J_PASSWORD`; for reranker: `COHERE_API_KEY`; for Graphiti MCP: `OPENAI_API_KEY`. See [.env.example](.env.example).
 
 ### 2. Data
 
-- **CFPB (already present):** `data/processed/cfpb_filtered.csv` (Debt collection, ~98k rows). To refresh or change product:
+- **CFPB:** ensure `data/processed/cfpb_filtered.csv` exists (Debt collection, ~98k rows). To (re)create:
   ```bash
   python scripts/download_and_filter_cfpb.py --product "Debt collection" --max-rows 50000
   ```
-- **Regulatory PDFs:** Download from the links in [data/DATA.md](data/DATA.md) and place in `data/regulatory/`.
+- **Regulatory PDFs:** optional; place in `data/regulatory/` (see [data/DATA.md](data/DATA.md) for links).
 
-### 3. Docker stack
+### 3. Start Qdrant (for ingestion and RAG)
 
 ```bash
-docker compose up -d
+docker compose up -d qdrant
 ```
 
-This starts: **n8n** (5678), **Qdrant** (6333), **Prometheus** (9090), **Grafana** (3000), **Cohere reranker** (8000), **Neo4j** (7474, 7687), **Graphiti MCP** (8001). Details: [DOCKER.md](DOCKER.md).
+Or start the full stack: `docker compose up -d`. Details: [DOCKER.md](DOCKER.md).
 
-### 4. Next: ingestion and RAG
+### 4. Run ingestion
 
-Ingestion (loader → chunker → embedder → Qdrant) and the RAG chain are the next steps; data and Docker are ready for them.
+From the project root (with `.env` loaded, e.g. by your IDE or `set -a; source .env; set +a` on Unix):
+
+```bash
+pip install -r requirements.txt
+python -m ingestion.run
+```
+
+The script checks: **OPENROUTER_API_KEY** set, Qdrant reachable, and at least one document (CFPB or PDFs). To wipe and refill the collection: `python -m ingestion.run --recreate`.
 
 ---
 
