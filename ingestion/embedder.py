@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, Callable, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
@@ -15,6 +15,7 @@ OPENROUTER_EMBED_API = "https://openrouter.ai/api/v1/embeddings"
 DEFAULT_EMBED_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2:free"
 BATCH_SIZE = 32
 RATE_DELAY = 0.5  # seconds between batches to avoid rate limits
+UPSERT_BATCH_SIZE = 500  # points per upsert batch for progress reporting
 
 
 def _embed_batch(
@@ -52,10 +53,12 @@ def embed_chunks(
     chunks: list[dict[str, Any]],
     api_key: str,
     model: str = DEFAULT_EMBED_MODEL,
+    progress_callback: Optional[Callable[[int, int, str], None]] = None,
 ) -> list[tuple[list[float], dict[str, Any]]]:
-    """Embed all chunks; returns list of (vector, metadata) with metadata safe for Qdrant payload."""
+    """Embed all chunks; returns list of (vector, metadata). progress_callback(batch_done, total_batches, 'embed')."""
     results = []
-    for i in range(0, len(chunks), BATCH_SIZE):
+    total_batches = (len(chunks) + BATCH_SIZE - 1) // BATCH_SIZE
+    for batch_idx, i in enumerate(range(0, len(chunks), BATCH_SIZE)):
         batch = chunks[i : i + BATCH_SIZE]
         texts = [c["text"] for c in batch]
         try:
@@ -64,10 +67,11 @@ def embed_chunks(
             raise RuntimeError(f"Embedding batch at index {i}: {e}") from e
         for j, (vec, chunk) in enumerate(zip(vectors, batch)):
             meta = chunk.get("metadata", {})
-            # Qdrant payload: only scalar types and lists of scalars
             payload = {k: (v if v is None or isinstance(v, (str, int, float, bool)) else str(v)) for k, v in meta.items()}
-            payload["text"] = chunk["text"][:65535]  # avoid huge payloads
+            payload["text"] = chunk["text"][:65535]
             results.append((vec, payload))
+        if progress_callback:
+            progress_callback(batch_idx + 1, total_batches, "embed")
         if i + BATCH_SIZE < len(chunks):
             time.sleep(RATE_DELAY)
     return results
@@ -88,9 +92,11 @@ def run_ingestion(
     openrouter_api_key: str | None = None,
     embed_model: str = DEFAULT_EMBED_MODEL,
     recreate_collection: bool = False,
+    progress_callback: Optional[Callable[[int, int, str], None]] = None,
 ) -> int:
     """
     Embed chunks and upsert into Qdrant. Returns number of points upserted.
+    progress_callback(current, total, phase) with phase in ('embed', 'upsert').
     """
     api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
@@ -104,7 +110,6 @@ def run_ingestion(
         except Exception:
             pass
 
-    # Get dimension from first batch
     dim = get_embedding_dimension(api_key, model=embed_model)
     try:
         client.get_collection(collection_name)
@@ -114,14 +119,21 @@ def run_ingestion(
             vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
         )
 
-    embedded = embed_chunks(chunks, api_key=api_key, model=embed_model)
+    embedded = embed_chunks(
+        chunks,
+        api_key=api_key,
+        model=embed_model,
+        progress_callback=progress_callback,
+    )
     points = [
-        PointStruct(
-            id=str(uuid.uuid4()),
-            vector=vec,
-            payload=payload,
-        )
+        PointStruct(id=str(uuid.uuid4()), vector=vec, payload=payload)
         for vec, payload in embedded
     ]
-    client.upsert(collection_name, points=points)
-    return len(points)
+    total_points = len(points)
+    # Upsert in batches for progress reporting
+    for i in range(0, total_points, UPSERT_BATCH_SIZE):
+        batch = points[i : i + UPSERT_BATCH_SIZE]
+        client.upsert(collection_name, points=batch)
+        if progress_callback:
+            progress_callback(min(i + len(batch), total_points), total_points, "upsert")
+    return total_points

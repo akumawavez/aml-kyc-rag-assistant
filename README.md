@@ -2,7 +2,7 @@
 
 **Repo:** `aml-kyc-rag-assistant`
 
-A **retrieval-augmented GenAI assistant** for AML/KYC analysts: explore and summarize financial crime risk signals from consumer complaint narratives and regulatory text. Ask case-style questions, get cited answers, and inspect relationship graphs across customers, institutions, products, and issues.
+A **retrieval-augmented GenAI assistant** for AML/KYC analysts: explore and summarize financial crime risk signals from consumer complaint narratives and regulatory text. Ask case-style, pattern, and policy questions and get **cited answers** from CFPB complaints and AML/regulatory documents. (Knowledge graph is out of scope for the current phases; see [PHASES.md](PHASES.md).)
 
 ---
 
@@ -11,9 +11,20 @@ A **retrieval-augmented GenAI assistant** for AML/KYC analysts: explore and summ
 - **Case-style questions** — Summarize complaint history, red flags, company responses; generate executive summaries for case files.
 - **Pattern and trend questions** — Top issues by product/company, emerging themes (e.g. crypto, fraud), under-remediation risk.
 - **Policy and regulatory questions** — Answers grounded in FATF, CFPB, FinCEN-style guidance (when regulatory PDFs are loaded).
-- **Knowledge-graph questions** — Entities and relationships from complaints (via Graphiti MCP + Neo4j); multi-hop and network-style queries.
 
-The system uses the **CFPB Consumer Complaint Database** (filtered by product), optional **AML/regulatory PDFs**, and a **knowledge graph** (Graphiti over Neo4j) with **hybrid retrieval** (vector + keyword) and **reranking** (e.g. Cohere).
+The system uses the **CFPB Consumer Complaint Database** (filtered by product), optional **AML/regulatory PDFs**, **hybrid retrieval** (vector + optional keyword), **reranking** (e.g. Cohere), and an **LLM** (OpenRouter/OpenAI) with citations.
+
+---
+
+## Phases (summary)
+
+| Phase | Focus | Proof |
+|-------|--------|--------|
+| **1** | Foundation | Ingestion → Qdrant; RAG chain; Streamlit chat + citations; tests; CI; DEPLOYMENT.md |
+| **2** | Observability & evaluation | Langfuse; RAGAS golden set + script; optional Prometheus/Grafana |
+| **3** | Optional: Databricks | Delta Lake; Mosaic AI Vector Search; same app/eval |
+
+**Full phase plan, deliverables, and completion tests:** [PHASES.md](PHASES.md).
 
 ---
 
@@ -21,12 +32,12 @@ The system uses the **CFPB Consumer Complaint Database** (filtered by product), 
 
 | Layer | Choices |
 |-------|--------|
-| **Data** | CFPB CSV, regulatory PDFs; Delta Lake (Phase 2 on Databricks) |
-| **Vector DB** | Qdrant (local Docker); Mosaic AI Vector Search (Phase 2) |
-| **Graph** | Neo4j + Graphiti MCP |
-| **RAG** | Hybrid retrieval (Qdrant + BM25), Cohere reranker, LLM (OpenAI / OpenRouter / Azure OpenAI) |
-| **Observability** | Langfuse (tracing), RAGAS (evaluation), Prometheus + Grafana (optional) |
-| **App** | Streamlit (planned); Docker Compose for local stack |
+| **Data** | CFPB CSV, regulatory PDFs; Delta Lake (Phase 3 on Databricks) |
+| **Vector DB** | Qdrant (local Docker); Mosaic AI Vector Search (Phase 3) |
+| **RAG** | Hybrid retrieval (Qdrant + optional BM25), Cohere reranker, LLM (OpenRouter / OpenAI) |
+| **Embeddings** | OpenRouter free model (`nvidia/llama-nemotron-embed-vl-1b-v2:free`) |
+| **Observability** | Langfuse (Phase 2), RAGAS (Phase 2), Prometheus + Grafana (optional) |
+| **App** | Streamlit; Docker Compose for Qdrant, reranker, etc. |
 
 ---
 
@@ -35,20 +46,20 @@ The system uses the **CFPB Consumer Complaint Database** (filtered by product), 
 ```
 ├── data/                 # Raw + processed CFPB; regulatory PDFs
 │   ├── raw/              # complaints.csv (full CFPB)
-│   ├── processed/       # cfpb_filtered.csv (one product, capped)
-│   ├── regulatory/      # AML/regulatory PDFs
-│   ├── DATA.md          # Data description, sources, schema
-│   └── README.md        # Data folder overview
-├── scripts/              # One-off scripts (e.g. download & filter CFPB)
-├── ingestion/            # Loader, chunker, embedder (to be added)
-├── graph/                # Graphiti/Neo4j builder (to be added)
-├── rag/                  # Retriever, reranker, chain, prompts (to be added)
-├── evaluation/           # RAGAS test set and eval (to be added)
-├── app/                  # Streamlit UI (to be added)
-├── services/
-│   └── reranker/        # Cohere reranker proxy (Docker)
+│   ├── processed/        # cfpb_filtered.csv (one product, capped)
+│   ├── regulatory/       # AML/regulatory PDFs
+│   ├── DATA.md           # Data description, sources, schema
+│   └── README.md         # Data folder overview
+├── scripts/              # download_and_filter_cfpb.py, etc.
+├── ingestion/            # loader, chunker, embedder, run
+├── rag/                  # retriever, reranker, chain, prompts (LangChain)
+├── evaluation/           # RAGAS test set and eval (Phase 2)
+├── app/                  # Streamlit UI
+├── services/reranker/    # Cohere reranker proxy (Docker)
 ├── prometheus/           # Prometheus config
-├── docker-compose.yml    # n8n, Qdrant, Prometheus, Grafana, Cohere reranker, Neo4j, Graphiti MCP
+├── tests/                # pytest: ingestion, RAG
+├── docker-compose.yml    # Qdrant, Prometheus, Grafana, reranker, n8n, Neo4j (optional)
+├── PHASES.md             # Phase plan and completion tests
 ├── .env.example          # Env template (copy to .env)
 └── DOCKER.md             # Docker stack and ports
 ```
@@ -66,9 +77,8 @@ cp .env.example .env
 ```
 
 Edit `.env`:
-- **For ingestion:** set **`OPENROUTER_API_KEY`** (required; get it at [openrouter.ai/keys](https://openrouter.ai/keys)).
-- Optional: `QDRANT_HOST`, `QDRANT_PORT`, `QDRANT_COLLECTION` (defaults: localhost, 6333, aml_rag).
-- For Docker stack: `NEO4J_PASSWORD`; for reranker: `COHERE_API_KEY`; for Graphiti MCP: `OPENAI_API_KEY`. See [.env.example](.env.example).
+- **For ingestion and RAG:** set **`OPENROUTER_API_KEY`** (required; get it at [openrouter.ai/keys](https://openrouter.ai/keys)).
+- Optional: `QDRANT_HOST`, `QDRANT_PORT`, `QDRANT_COLLECTION` (defaults: localhost, 6333, aml_rag); for reranker: `COHERE_API_KEY`. See [.env.example](.env.example) and [DOCKER.md](DOCKER.md) for full stack.
 
 ### 2. Data
 
@@ -107,10 +117,11 @@ The script checks: **OPENROUTER_API_KEY** set, Qdrant reachable, and at least on
 
 ---
 
-## Roadmap
+## Next steps
 
-- **Phase 1 (local):** Ingestion pipeline → Qdrant + Graphiti/Neo4j → RAG chain (hybrid + reranker) → Streamlit UI → RAGAS/Langfuse evaluation.
-- **Phase 2 (optional):** Azure Databricks — Delta Lake, Mosaic AI Vector Search, MLflow; same app and evaluation approach.
+1. **Phase 1:** Finish Streamlit app (`app/main.py`) with chat and citations; add `DEPLOYMENT.md` and CI workflow. Run and pass tests in [PHASES.md](PHASES.md) (Test 1.1–1.6).
+2. **Phase 2:** Add observability tab (Langfuse), RAGAS golden set and `evaluation/ragas_eval.py`; optional Prometheus/Grafana.
+3. **Phase 3 (optional):** Azure Databricks path (Delta, Vector Search) when you need scale.
 
 ---
 

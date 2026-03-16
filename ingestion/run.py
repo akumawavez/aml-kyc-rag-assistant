@@ -96,6 +96,24 @@ def main() -> None:
     chunks = chunk_documents(docs, chunk_size=args.chunk_size, overlap=args.overlap)
     print(f"  {len(chunks)} chunks")
 
+    total_chunks = len(chunks)
+    batch_size_embed = 32  # must match embedder.BATCH_SIZE
+    _last_pct = [-1.0, -1.0]  # [embed, upsert] — throttle: only print when pct advances by ≥1%
+
+    def _progress(current: int, total: int, phase: str) -> None:
+        if total == 0:
+            return
+        pct = current / total * 100
+        idx = 0 if phase == "embed" else 1
+        if pct - _last_pct[idx] < 1.0 and current < total:
+            return  # skip update to avoid extra I/O
+        _last_pct[idx] = pct
+        if phase == "embed":
+            chunks_done = min(current * batch_size_embed, total_chunks)
+            print(f"\r  Embedding: {pct:.1f}% ({chunks_done}/{total_chunks} chunks)", end="", flush=True)
+        else:
+            print(f"\r  Upserting: {pct:.1f}% ({current}/{total} points)", end="", flush=True)
+
     print("Embedding and writing to Qdrant...")
     n = run_ingestion(
         chunks,
@@ -104,8 +122,30 @@ def main() -> None:
         collection_name=args.collection,
         recreate_collection=args.recreate,
         embed_model="nvidia/llama-nemotron-embed-vl-1b-v2:free",
+        progress_callback=_progress,
     )
+    print()  # newline after progress
     print(f"  Upserted {n} points to collection {args.collection!r}")
+
+    # Verify collection actually has points (fail if ingestion wrote 0)
+    from qdrant_client import QdrantClient
+    client = QdrantClient(host=args.qdrant_host, port=args.qdrant_port)
+    count = 0
+    try:
+        info = client.get_collection(args.collection)
+        count = getattr(info, "points_count", 0)
+    except Exception:
+        pass
+    if not count and hasattr(client, "count"):
+        try:
+            r = client.count(collection_name=args.collection)
+            count = getattr(r, "count", 0)
+        except Exception:
+            pass
+    if count == 0:
+        print("Error: Verification failed — collection has 0 points. Ingestion did not persist data.", file=sys.stderr)
+        sys.exit(1)
+    print(f"  Verified: collection {args.collection!r} has {count} points.")
 
 
 if __name__ == "__main__":

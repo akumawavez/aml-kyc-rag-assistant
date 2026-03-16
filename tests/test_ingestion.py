@@ -105,3 +105,48 @@ def test_chunk_documents_splits_long():
     assert len(out) >= 2
     for o in out:
         assert o["metadata"]["source"] == "test"
+
+
+# --- Embedder: integration test that ingestion writes to Qdrant ---
+
+
+def test_run_ingestion_upserts_points_to_qdrant():
+    """With mocked embeddings, run_ingestion returns correct count and (if Qdrant running) collection has points."""
+    from unittest.mock import patch
+    from qdrant_client import QdrantClient
+    from ingestion.embedder import run_ingestion
+
+    chunks = [
+        {"text": "First chunk.", "metadata": {"source": "cfpb"}},
+        {"text": "Second chunk.", "metadata": {"source": "cfpb"}},
+    ]
+    fake_dim = 256
+    fake_vectors = [[0.1] * fake_dim for _ in chunks]
+
+    try:
+        with patch("ingestion.embedder._embed_batch") as mock_embed:
+            mock_embed.return_value = fake_vectors
+            with patch("ingestion.embedder.get_embedding_dimension") as mock_dim:
+                mock_dim.return_value = fake_dim
+                n = run_ingestion(
+                    chunks,
+                    qdrant_host="localhost",
+                    qdrant_port=6333,
+                    collection_name="test_ingestion_verify",
+                    openrouter_api_key="sk-fake",
+                    recreate_collection=True,
+                )
+        assert n == 2, "run_ingestion should return number of points upserted"
+        # Verify Qdrant collection actually has 2 points (when Qdrant is running)
+        client = QdrantClient(host="localhost", port=6333)
+        info = client.get_collection("test_ingestion_verify")
+        count = getattr(info, "points_count", 0)
+        assert count == 2, f"Collection should have 2 points after ingestion, got {count}"
+    except Exception as e:
+        if "Connection" in str(e) or "refused" in str(e).lower():
+            pytest.skip("Qdrant not running; start with: docker compose up -d qdrant")
+        raise
+</think>
+Checking how to use in-memory Qdrant in the client:
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+WebSearch
