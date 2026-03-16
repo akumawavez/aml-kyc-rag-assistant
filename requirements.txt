@@ -11,6 +11,16 @@ langchain-openai>=0.2,<1
 langchain-qdrant>=0.2,<1
 langchain-community>=0.3,<1
 
+# App
+streamlit>=1.28,<2
+
+# Observability (Phase 2)
+langfuse>=2.0,<3
+
+# Evaluation (Phase 2 – RAGAS)
+datasets>=2.14,<4
+ragas>=0.2,<1
+
 # Tests
 pytest>=7.0,<9
 pytest-cov>=4.0,<6

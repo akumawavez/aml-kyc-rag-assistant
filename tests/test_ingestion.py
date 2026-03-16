@@ -146,7 +146,3 @@ def test_run_ingestion_upserts_points_to_qdrant():
         if "Connection" in str(e) or "refused" in str(e).lower():
             pytest.skip("Qdrant not running; start with: docker compose up -d qdrant")
         raise
-</think>
-Checking how to use in-memory Qdrant in the client:
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-WebSearch

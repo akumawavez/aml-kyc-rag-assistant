@@ -1,7 +1,7 @@
 """
 RAG prompts: system + user with context.
 """
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 
 SYSTEM_RAG = """You are an AML/KYC assistant. Answer only using the provided context (complaint and regulatory excerpts). If the context does not contain enough information, say so. Do not invent facts or citations. Quote or cite the context when relevant."""
 

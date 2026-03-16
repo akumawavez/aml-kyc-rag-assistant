@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from langchain_core.documents import Document
 
-from rag.prompts import RAG_PROMPT, SYSTEM_RAG
+from rag.prompts import RAG_PROMPT
 from rag.reranker import rerank_documents
 from rag.chain import _format_docs, build_rag_chain
 from rag.embeddings_openrouter import OpenRouterEmbeddings

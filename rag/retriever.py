@@ -4,11 +4,8 @@ Build LangChain retriever over Qdrant using OpenRouter embeddings (same model as
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from langchain_core.retrievers import BaseRetriever
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
-from langchain_core.documents import Document
 
 from qdrant_client import QdrantClient
 
