@@ -95,6 +95,20 @@ See [.env.example](.env.example) for optional vars (Langfuse, Neo4j, etc.).
 
 ---
 
+## Phase 3 – Databricks
+
+To use **Databricks Mosaic AI Vector Search** instead of Qdrant:
+
+1. **On Databricks:** Run the ingest job (`databricks/delta_ingest.py`), then create the Vector Search index (`databricks/create_vector_index.py`). See [databricks/README.md](databricks/README.md) for secrets (e.g. Azure Key Vault), Delta table name, and index creation.
+2. **For the app:** Set in `.env`:
+   - `VECTOR_BACKEND=databricks`
+   - `DATABRICKS_HOST=https://<workspace>.azuredatabricks.net`
+   - `DATABRICKS_TOKEN=<personal-access-token>`
+   - `DATABRICKS_VECTOR_SEARCH_INDEX_NAME=<catalog>.<schema>.<index_name>`
+3. Run the app as usual; retrieval will query the Databricks index. RAGAS evaluation can run as a Databricks job (`databricks/ragas_eval_job.py`) with optional MLflow logging.
+
+---
+
 ## CI/CD
 
 The repo includes `.github/workflows/ci.yml`: on push/PR to main/master it runs `ruff check .` and `pytest tests/ -v`. No secrets are required for CI; tests use mocks and do not call OpenRouter or Qdrant.

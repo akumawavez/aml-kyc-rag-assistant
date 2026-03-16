@@ -11,7 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
-from rag.retriever import get_qdrant_retriever
+from rag.retriever import get_retriever
 from rag.reranker import rerank_documents
 from rag.prompts import RAG_PROMPT
 
@@ -39,7 +39,7 @@ def build_rag_chain(
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY required")
 
-    retriever = get_qdrant_retriever(
+    retriever = get_retriever(
         collection_name=collection_name,
         qdrant_host=qdrant_host,
         qdrant_port=qdrant_port,
@@ -108,7 +108,7 @@ def ask_with_sources(
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY required")
 
-    retriever = get_qdrant_retriever(
+    retriever = get_retriever(
         collection_name=collection_name,
         qdrant_host=qdrant_host,
         qdrant_port=qdrant_port,

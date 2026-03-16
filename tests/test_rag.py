@@ -76,7 +76,7 @@ def test_build_rag_chain_invoke_mocked(monkeypatch):
     from rag import chain as chain_mod
 
     fake_docs = [Document(page_content="Context about debt collection.", metadata={})]
-    with patch.object(chain_mod, "get_qdrant_retriever") as mock_retriever_cls:
+    with patch.object(chain_mod, "get_retriever") as mock_retriever_cls:
         mock_ret = MagicMock()
         mock_ret.invoke.return_value = fake_docs
         mock_retriever_cls.return_value = mock_ret

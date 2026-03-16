@@ -1,5 +1,5 @@
 """
-Build LangChain retriever over Qdrant using OpenRouter embeddings (same model as ingestion).
+Build LangChain retriever over Qdrant or Databricks Vector Search (Phase 3) using OpenRouter embeddings.
 """
 from __future__ import annotations
 
@@ -10,6 +10,19 @@ from langchain_core.retrievers import BaseRetriever
 from qdrant_client import QdrantClient
 
 from rag.embeddings_openrouter import OpenRouterEmbeddings, DEFAULT_MODEL
+
+
+def get_retriever(
+    *,
+    backend: str | None = None,
+    **kwargs,
+) -> BaseRetriever:
+    """Return Qdrant or Databricks retriever based on VECTOR_BACKEND env or backend= argument."""
+    backend = backend or os.environ.get("VECTOR_BACKEND", "qdrant")
+    if backend == "databricks":
+        from rag.retriever_databricks import get_databricks_retriever
+        return get_databricks_retriever(**kwargs)
+    return get_qdrant_retriever(**kwargs)
 
 
 def get_qdrant_retriever(
