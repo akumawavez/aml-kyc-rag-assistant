@@ -97,7 +97,22 @@ See [.env.example](.env.example) for optional vars (Langfuse, Neo4j, etc.).
 
 ## Phase 3 – Databricks
 
-To use **Databricks Mosaic AI Vector Search** instead of Qdrant:
+### End-to-end proof (one notebook)
+
+Run the **Phase 3 end-to-end notebook** to execute the full pipeline on Databricks and satisfy “build a complete end-to-end solution using Databricks”:
+
+1. In Databricks, open **`databricks/notebooks/Phase3_EndToEnd.py`** (from Repos or after uploading the repo).
+2. Ensure CFPB CSV is at `dbfs:/FileStore/aml_kyc/cfpb_filtered.csv` (or set `INPUT_CFPB_PATH`), and set `OPENROUTER_API_KEY` (cluster env or secret scope `aml-kyc`).
+3. Run all cells in order. The notebook will:
+   - Ingest CFPB data into a Delta table
+   - Create the Vector Search endpoint and Delta Sync index (and wait until Ready)
+   - Run a sample RAG query using Databricks retrieval
+   - Run RAGAS evaluation and log metrics to MLflow experiment **`aml-kyc-rag-eval`**
+4. In **MLflow → Experiments → aml-kyc-rag-eval**, confirm runs and metrics (faithfulness, answer_relevancy, context_precision, context_recall).
+
+### Using Databricks retrieval from the app
+
+To use **Databricks Mosaic AI Vector Search** instead of Qdrant from the Streamlit app:
 
 1. **On Databricks:** Run the ingest job (`databricks/delta_ingest.py`), then create the Vector Search index (`databricks/create_vector_index.py`). See [databricks/README.md](databricks/README.md) for secrets (e.g. Azure Key Vault), Delta table name, and index creation.
 2. **For the app:** Set in `.env`:
@@ -106,6 +121,18 @@ To use **Databricks Mosaic AI Vector Search** instead of Qdrant:
    - `DATABRICKS_TOKEN=<personal-access-token>`
    - `DATABRICKS_VECTOR_SEARCH_INDEX_NAME=<catalog>.<schema>.<index_name>`
 3. Run the app as usual; retrieval will query the Databricks index. RAGAS evaluation can run as a Databricks job (`databricks/ragas_eval_job.py`) with optional MLflow logging.
+
+---
+
+## MLflow (RAGAS evaluation)
+
+When you run RAGAS evaluation (locally with `python -m evaluation.ragas_eval` or on Databricks with `databricks/ragas_eval_job.py`), metrics and run parameters are logged to MLflow when the library is available:
+
+- **Experiment name:** `aml-kyc-rag-eval`
+- **Logged metrics:** RAGAS scores (faithfulness, answer_relevancy, context_precision, context_recall)
+- **Logged params:** e.g. `vector_backend`, `use_reranker`, `num_questions`
+
+Use the MLflow UI (local or Databricks) to compare runs. If MLflow is not installed or no tracking server is configured, logging is skipped and the eval still completes.
 
 ---
 

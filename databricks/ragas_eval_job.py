@@ -102,15 +102,45 @@ def main() -> None:
     for name, score in result.items():
         print(f"  {name}: {score}")
 
-    # Optional: log to MLflow
+    # Log to MLflow (experiment aml-kyc-rag-eval); start run if not already in one (e.g. job UI)
+    _log_ragas_to_mlflow(
+        result=result,
+        params={
+            "vector_backend": "databricks",
+            "use_reranker": False,
+            "num_questions": len(GOLDEN_SET),
+        },
+    )
+    print()
+
+
+def _log_ragas_to_mlflow(result: dict, params: dict | None = None) -> None:
+    """Log RAGAS metrics and params to MLflow experiment aml-kyc-rag-eval."""
     try:
         import mlflow
-        mlflow.log_metrics({k: float(v) for k, v in result.items() if v is not None and str(v) != "nan"})
-        print("Logged metrics to MLflow.")
+        exp_name = "aml-kyc-rag-eval"
+        try:
+            exp = mlflow.get_experiment_by_name(exp_name)
+            if exp is None:
+                mlflow.create_experiment(exp_name)
+        except Exception:
+            pass
+        mlflow.set_experiment(exp_name)
+        started_run = mlflow.active_run() is None
+        if started_run:
+            mlflow.start_run()
+        try:
+            if params:
+                mlflow.log_params({k: str(v) for k, v in params.items()})
+            metrics = {k: float(v) for k, v in result.items() if v is not None and str(v) != "nan"}
+            if metrics:
+                mlflow.log_metrics(metrics)
+            print("Logged metrics and params to MLflow.")
+        finally:
+            if started_run and mlflow.active_run() is not None:
+                mlflow.end_run()
     except Exception:
         pass
-
-    print()
 
 
 if __name__ == "__main__":

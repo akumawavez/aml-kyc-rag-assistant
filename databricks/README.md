@@ -8,12 +8,13 @@ This folder contains scripts and notebooks for running the AML/KYC RAG pipeline 
 
 ## Overview
 
-| Step | Script | Description |
-|------|--------|-------------|
+| Step | Script / Notebook | Description |
+|------|-------------------|-------------|
+| **All-in-one** | **`notebooks/Phase3_EndToEnd.py`** | Single notebook: ingest → index → sample query → RAGAS → MLflow. Run all cells for full proof. |
 | 1 | `delta_ingest.py` | Ingest CFPB + regulatory data → chunk → embed → write to Delta table |
 | 2 | `create_vector_index.py` | Create Vector Search endpoint and Delta Sync index from the Delta table |
 | 3 | App / RAG | Set `VECTOR_BACKEND=databricks` and Databricks env vars; app uses Databricks retrieval |
-| 4 | `ragas_eval_job.py` | Run RAGAS evaluation on Databricks; optional MLflow logging |
+| 4 | `ragas_eval_job.py` | Run RAGAS evaluation on Databricks; logs to MLflow experiment `aml-kyc-rag-eval` |
 
 ---
 
@@ -46,7 +47,23 @@ Optional: `DATABRICKS_VECTOR_SEARCH_ENDPOINT_NAME` if different from default.
 
 ---
 
-## Running the ingest job
+## Running the full pipeline (recommended)
+
+**Use the end-to-end notebook** so one run proves the whole pipeline:
+
+1. In Databricks, clone this repo (Repos) or upload the project.
+2. Upload CFPB CSV to `dbfs:/FileStore/aml_kyc/cfpb_filtered.csv` (or set `INPUT_CFPB_PATH`).
+3. Create secret scope `aml-kyc` and add `OPENROUTER_API_KEY` (or set it in cluster env).
+4. Open **`databricks/notebooks/Phase3_EndToEnd.py`** and run all cells. The notebook will:
+   - Ingest data into a Delta table
+   - Enable Change Data Feed and create the Vector Search index (waits until Ready)
+   - Run a sample RAG query using Databricks retrieval
+   - Run RAGAS evaluation and log metrics to MLflow experiment **`aml-kyc-rag-eval`**
+5. In MLflow, open experiment **`aml-kyc-rag-eval`** to see runs and compare scores.
+
+---
+
+## Running the ingest job (script only)
 
 1. Upload or clone this repo to the Databricks workspace (e.g. Repos).
 2. Upload CFPB CSV to DBFS or a path accessible to the cluster (e.g. `dbfs:/FileStore/aml_kyc/cfpb_filtered.csv`).

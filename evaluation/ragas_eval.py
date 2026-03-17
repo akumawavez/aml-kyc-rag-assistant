@@ -1,7 +1,8 @@
 """
 Run RAGAS evaluation on the golden set.
 Usage: python -m evaluation.ragas_eval
-Requires: OPENROUTER_API_KEY, Qdrant running, ingestion done. Optional: ragas, datasets.
+Requires: OPENROUTER_API_KEY, Qdrant running, ingestion done. Optional: ragas, datasets, mlflow.
+Logs metrics (and optional params) to MLflow experiment "aml-kyc-rag-eval" when mlflow is available.
 """
 from __future__ import annotations
 
@@ -79,7 +80,38 @@ def main() -> None:
     print("\nRAGAS scores:")
     for name, score in result.items():
         print(f"  {name}: {score}")
+
+    # Log to MLflow (experiment aml-kyc-rag-eval) when available
+    _log_ragas_to_mlflow(
+        result=result,
+        params={
+            "vector_backend": os.environ.get("VECTOR_BACKEND", "qdrant"),
+            "use_reranker": bool((os.environ.get("COHERE_API_KEY") or "").strip()),
+            "num_questions": len(GOLDEN_SET),
+        },
+    )
     print()
+
+
+def _log_ragas_to_mlflow(result: dict, params: dict | None = None) -> None:
+    """Log RAGAS metrics (and optional params) to MLflow experiment aml-kyc-rag-eval."""
+    try:
+        import mlflow
+        exp_name = "aml-kyc-rag-eval"
+        exp = mlflow.get_experiment_by_name(exp_name)
+        if exp is None:
+            mlflow.create_experiment(exp_name)
+        mlflow.set_experiment(exp_name)
+        with mlflow.start_run():
+            if params:
+                mlflow.log_params({k: str(v) for k, v in params.items()})
+            metrics = {k: float(v) for k, v in result.items() if v is not None and str(v) != "nan"}
+            if metrics:
+                mlflow.log_metrics(metrics)
+            print("Logged metrics and params to MLflow.")
+    except Exception:
+        # MLflow optional: no run, not installed, or tracking server down
+        pass
 
 
 if __name__ == "__main__":

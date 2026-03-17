@@ -1,0 +1,2 @@
+# Exclude Databricks notebooks (dbutils, cell-style imports are runtime-only)
+extend-exclude = ["databricks/notebooks"]

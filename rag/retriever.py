@@ -21,7 +21,8 @@ def get_retriever(
     backend = backend or os.environ.get("VECTOR_BACKEND", "qdrant")
     if backend == "databricks":
         from rag.retriever_databricks import get_databricks_retriever
-        return get_databricks_retriever(**kwargs)
+        db_kwargs = {k: v for k, v in kwargs.items() if k in ("index_name", "workspace_url", "personal_access_token", "endpoint_name", "openrouter_api_key", "embed_model", "k")}
+        return get_databricks_retriever(**db_kwargs)
     return get_qdrant_retriever(**kwargs)
 
 
